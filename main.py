@@ -3,6 +3,7 @@ import requests
 from datetime import datetime, timedelta, timezone
 import pandas as pd
 import matplotlib.pyplot as plt
+
 def show_country_codes():
     country_codes = {
         "Afghanistan": "AF", "Albania": "AL", "Algeria": "DZ", "Andorra": "AD",
