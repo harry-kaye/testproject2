@@ -6,8 +6,8 @@ import streamlit as st
 import folium
 from streamlit_folium import st_folium
 
-def show_country_codes():
-    country_codes = {
+def get_country_codes():
+    return {
         "Afghanistan": "AF", "Albania": "AL", "Algeria": "DZ", "Andorra": "AD",
         "Angola": "AO", "Antigua and Barbuda": "AG", "Argentina": "AR", "Armenia": "AM",
         "Australia": "AU", "Austria": "AT", "Azerbaijan": "AZ", "Bahamas": "BS",
@@ -58,15 +58,6 @@ def show_country_codes():
         "Venezuela": "VE", "Vietnam": "VN", "Yemen": "YE", "Zambia": "ZM", "Zimbabwe": "ZW"
     }
 
-    message = "\n".join([f"{country}: {code}" for country, code in country_codes.items()])
-    try:
-        root = tk.Tk()
-        root.withdraw()  # Hide the main window
-        messagebox.showinfo("Country Codes", message)
-    except tk.TclError:
-        print("Unable to open a Tkinter window. Here are the country codes:")
-        print(message)
-
 def get_local_time(timezone_offset):
     utc_time = datetime.now(timezone.utc)
     local_time = utc_time + timedelta(seconds=timezone_offset)
@@ -95,17 +86,18 @@ def get_forecast_data(city, country, state, api_key):
     else:
         return None, None
 
-# Show the country codes popup or print them if Tkinter cannot open
-show_country_codes()
-
 st.title("5-Day Weather Forecast")
+
+if st.button('Show Country Codes'):
+    country_codes = get_country_codes()
+    st.write(country_codes)
 
 city = st.text_input("Enter City: ")
 country = st.text_input("Enter Country (use 2-letter ISO code): ").upper()
 state = ""
 
 if country == "US":
-    state = st.text_input("Enter State (if applicable): ")
+    state = st.text_input("Enter State (optional): ")
 
 api_key = st.text_input("Enter your OpenWeatherMap API Key: ")
 
