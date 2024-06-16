@@ -1,8 +1,8 @@
 import requests
 import pandas as pd
 from datetime import datetime, timedelta, timezone
-import matplotlib.pyplot as plt
 import streamlit as st
+import plotly.graph_objects as go
 import folium
 from streamlit_folium import st_folium
 
@@ -148,19 +148,18 @@ if city and country and api_key:
         df = pd.DataFrame(forecast_data, columns=["Date & Time", "Temperature (°C)", "Weather", "Wind (m/s)", "Humidity (%)", "Pressure (hPa)"])
         st.dataframe(df)
 
-        fig, ax1 = plt.subplots()
+        fig = go.Figure()
 
-        ax1.set_xlabel("Date & Time")
-        ax1.set_ylabel("Temperature (°C)", color="tab:red")
-        ax1.plot(df["Date & Time"], df["Temperature (°C)"], color="tab:red", label="Temperature (°C)")
-        ax1.tick_params(axis="y", labelcolor="tab:red")
+        fig.add_trace(go.Scatter(x=df["Date & Time"], y=df["Temperature (°C)"], mode='lines+markers', name='Temperature (°C)', line=dict(color='red')))
+        fig.add_trace(go.Scatter(x=df["Date & Time"], y=df["Humidity (%)"], mode='lines+markers', name='Humidity (%)', line=dict(color='blue'), yaxis="y2"))
 
-        ax2 = ax1.twinx()
-        ax2.set_ylabel("Humidity (%)", color="tab:blue")
-        ax2.plot(df["Date & Time"], df["Humidity (%)"], color="tab:blue", label="Humidity (%)")
-        ax2.tick_params(axis="y", labelcolor="tab:blue")
+        fig.update_layout(
+            title="Temperature and Humidity over 5 Days",
+            xaxis=dict(title="Date & Time"),
+            yaxis=dict(title="Temperature (°C)", titlefont=dict(color="red")),
+            yaxis2=dict(title="Humidity (%)", titlefont=dict(color="blue"), overlaying='y', side='right')
+        )
 
-        fig.tight_layout()
-        st.pyplot(fig)
+        st.plotly_chart(fig)
     else:
         st.write("Unable to fetch forecast data.")
