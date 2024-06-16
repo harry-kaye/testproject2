@@ -3,6 +3,9 @@ import requests
 from datetime import datetime, timedelta, timezone
 import pandas as pd
 import matplotlib.pyplot as plt
+import folium
+from streamlit_folium import st_folium
+
 
 def show_country_codes():
     country_codes = {
