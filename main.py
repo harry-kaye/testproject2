@@ -1,11 +1,10 @@
-
 import requests
-from datetime import datetime, timedelta, timezone
 import pandas as pd
+from datetime import datetime, timedelta, timezone
 import matplotlib.pyplot as plt
+import streamlit as st
 import folium
 from streamlit_folium import st_folium
-
 
 def show_country_codes():
     country_codes = {
@@ -87,65 +86,89 @@ def get_forecast_data(city, country, state, api_key):
         for forecast in data['list']:
             forecast_time = datetime.fromtimestamp(forecast['dt'], timezone.utc) + timedelta(seconds=data['city']['timezone'])
             temp = forecast['main']['temp']
-            humidity = forecast['main']['humidity']
             description = forecast['weather'][0]['description']
             wind = forecast['wind']['speed']
+            humidity = forecast['main']['humidity']
             pressure = forecast['main']['pressure']
-            forecast_data.append({
-                'Forecast Time': forecast_time.strftime("%A, %d %B %Y, %I:%M %p"),
-                'Temperature (°C)': temp,
-                'Humidity (%)': humidity,
-                'Description': description,
-                'Wind Speed (m/s)': wind,
-                'Pressure (hPa)': pressure
-            })
-        return forecast_data
+            forecast_data.append((forecast_time.strftime("%A, %d %B %Y, %I:%M %p"), temp, description, wind, humidity, pressure))
+        return forecast_data, data['city']['timezone']
     else:
-        return None
+        return None, None
 
 # Show the country codes popup or print them if Tkinter cannot open
-# show_country_codes()
+show_country_codes()
 
-city = input("Enter City: ")
-country = input("Enter Country (use 2-letter ISO code): ").upper()
+st.title("5-Day Weather Forecast")
+
+city = st.text_input("Enter City: ")
+country = st.text_input("Enter Country (use 2-letter ISO code): ").upper()
 state = ""
 
 if country == "US":
-    state = input("Enter State (if applicable): ")
+    state = st.text_input("Enter State (if applicable): ")
 
-# api key removed
-api_key = input("API key: ")
+api_key = st.text_input("Enter your OpenWeatherMap API Key: ")
 
-location_query = f"{city},{country}"
+if city and country and api_key:
+    url = f"http://api.openweathermap.org/data/2.5/weather?q={city},{state},{country}&appid={api_key}&units=metric"
+    res = requests.get(url)
+    data = res.json()
 
-if state:
-    location_query = f"{city},{state},{country}"
+    if res.status_code == 200:
+        humidity = data['main']['humidity']
+        pressure = data['main']['pressure']
+        wind = data['wind']['speed']
+        description = data['weather'][0]['description']
+        temp = data['main']['temp']
+        timezone_offset = data['timezone']
 
-# 5-day forecast data
-forecast_data = get_forecast_data(city, country, state, api_key)
-if forecast_data:
-    df = pd.DataFrame(forecast_data)
-    print("\n5-day Forecast:")
-    print(df)
-else:
-    print("Unable to fetch forecast data.")
+        local_time = get_local_time(timezone_offset)
 
-# 5-day forecast data
-forecast_data = get_forecast_data(city, country, state, api_key)
-if forecast_data:
-    df = pd.DataFrame(forecast_data)
+        st.write(f'**Location:** {city}, {state if state else ""} {country}')
+        st.write(f'**Local Time:** {local_time}')
+        st.write(f'**Temperature:** {temp} °C')
+        st.write(f'**Wind:** {wind} m/s')
+        st.write(f'**Pressure:** {pressure} hPa')
+        st.write(f'**Humidity:** {humidity} %')
+        st.write(f'**Description:** {description}')
 
-    # Plotting Temperature and Humidity over Time
-    plt.figure(figsize=(10, 6))
-    plt.plot(df['Forecast Time'], df['Temperature (°C)'], marker='o', linestyle='-', color='b', label='Temperature (°C)')
-    plt.plot(df['Forecast Time'], df['Humidity (%)'], marker='o', linestyle='-', color='g', label='Humidity (%)')
-    plt.title('5-Day Weather Forecast')
-    plt.xlabel('Forecast Time')
-    plt.ylabel('Values')
-    plt.xticks(rotation=45)
-    plt.legend()
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
-else:
-    print("Unable to fetch forecast data.")
+        # Display the map with the weather data
+        lat = data['coord']['lat']
+        lon = data['coord']['lon']
+        weather_map = folium.Map(location=[lat, lon], zoom_start=10)
+        folium.Marker(
+            [lat, lon],
+            popup=f"Temperature: {temp} °C\nHumidity: {humidity} %\nPressure: {pressure} hPa\nWind: {wind} m/s\nDescription: {description}"
+        ).add_to(weather_map)
+        st_folium(weather_map, width=700, height=500)
+    else:
+        st.write(f"Error: {data.get('message', 'Unable to fetch data.')}")
+
+    # 5-day forecast data
+    forecast_data, timezone_offset = get_forecast_data(city, country, state, api_key)
+    if forecast_data:
+        st.subheader("5-day Forecast")
+
+        # Display local time
+        local_time = get_local_time(timezone_offset)
+        st.write(f"**Local Date and Time:** {local_time}")
+
+        df = pd.DataFrame(forecast_data, columns=["Date & Time", "Temperature (°C)", "Weather", "Wind (m/s)", "Humidity (%)", "Pressure (hPa)"])
+        st.dataframe(df)
+
+        fig, ax1 = plt.subplots()
+
+        ax1.set_xlabel("Date & Time")
+        ax1.set_ylabel("Temperature (°C)", color="tab:red")
+        ax1.plot(df["Date & Time"], df["Temperature (°C)"], color="tab:red", label="Temperature (°C)")
+        ax1.tick_params(axis="y", labelcolor="tab:red")
+
+        ax2 = ax1.twinx()
+        ax2.set_ylabel("Humidity (%)", color="tab:blue")
+        ax2.plot(df["Date & Time"], df["Humidity (%)"], color="tab:blue", label="Humidity (%)")
+        ax2.tick_params(axis="y", labelcolor="tab:blue")
+
+        fig.tight_layout()
+        st.pyplot(fig)
+    else:
+        st.write("Unable to fetch forecast data.")
